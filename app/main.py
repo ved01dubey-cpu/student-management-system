@@ -19,11 +19,27 @@ from app.ai_service import ask_ollama, DEFAULT_MODEL
 async def lifespan(app: FastAPI):
     """
     Application lifespan handler:
-    Initializes database tables on startup.
+    Initializes database tables on startup and seeds initial records if empty.
     """
     # Create SQLite database tables if they do not exist
     Base.metadata.create_all(bind=engine)
+
+    # Automatically populate sample student records if table is empty (great for live cloud deployment)
+    try:
+        from seed_data import SAMPLE_STUDENTS
+        db = SessionLocal()
+        try:
+            if not crud.get_students(db, limit=1):
+                for data in SAMPLE_STUDENTS:
+                    student_schema = schemas.StudentCreate(**data)
+                    crud.create_student(db, student_schema)
+        finally:
+            db.close()
+    except Exception:
+        pass
+
     yield
+
 
 
 # Initialize FastAPI app with student-friendly metadata
